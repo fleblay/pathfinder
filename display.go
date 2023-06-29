@@ -53,7 +53,7 @@ func printPath(world [][]byte, move []byte) {
 		clearScreen()
 		fmt.Print(printMap(world))
 		time.Sleep(300 * time.Millisecond)
-		player := findPlayer(world)
+		player := findItem(world, 'S')
 		updatePos(world, player, directions[m])
 	}
 	clearScreen()
