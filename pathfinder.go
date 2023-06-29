@@ -65,13 +65,14 @@ func getNextMoves(world [][]byte, path []byte, player Pos2D, seen []Pos2D) (next
 	return
 }
 
-func BFS(world [][]byte) (path []byte) {
+func BFS(world [][]byte) ([]byte, []Pos2D, int) {
 	goalPos := findItem(world, 'E')
-	seen := []Pos2D{findItem(world, 'S')}
+	seenPos := []Pos2D{findItem(world, 'S')}
 	posQueue := []Pos2D{findItem(world, 'S')}
 	pathQueue := [][]byte{{}}
 
-	for len(posQueue) > 0 {
+	tries := 0
+	for ;len(posQueue) > 0; tries++ {
 		currentPos := posQueue[0]
 		posQueue = posQueue[1:]
 
@@ -79,14 +80,14 @@ func BFS(world [][]byte) (path []byte) {
 		pathQueue = pathQueue[1:]
 
 		if goalPos == currentPos {
-			return currentPath
+			return currentPath, seenPos, tries + 1
 		}
-		nextPaths, nextPoses, nextSeen := getNextMoves(world, currentPath, currentPos, seen)
+		nextPaths, nextPoses, nextSeen := getNextMoves(world, currentPath, currentPos, seenPos)
 		posQueue = append(posQueue, nextPoses...)
 		pathQueue = append(pathQueue, nextPaths...)
-		seen = append(seen, nextSeen...)
+		seenPos = append(seenPos, nextSeen...)
 	}
-	return nil
+	return nil, seenPos, tries
 }
 
 func main() {
@@ -104,9 +105,11 @@ func main() {
 		fmt.Printf("Error opening scanning file %q : %q\n", os.Args[1], err)
 		os.Exit(1)
 	}
-	path := BFS(world)
+	path, seenPos, tries := BFS(world)
 	if path != nil {
 		printPath(world, path)
+		fmt.Printf("Solution found in %d tries \n", tries)
+		fmt.Println(printMapAndTries(DeepCopyAndAdd(world), seenPos))
 	} else {
 		fmt.Println("No solution !")
 	}
