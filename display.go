@@ -48,11 +48,18 @@ func printMap(world [][]byte) (res string) {
 	return
 }
 
+func updatePos(world [][]byte, pos Pos2D, move Pos2D) {
+	nextPos := Pos2D{pos.X + move.X, pos.Y + move.Y}
+	world[pos.Y][pos.X] = '_'
+	world[nextPos.Y][nextPos.X] = 'S'
+}
+
+
 func printPath(world [][]byte, move []byte) {
 	for _, m := range move {
 		clearScreen()
 		fmt.Print(printMap(world))
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		player := findItem(world, 'S')
 		updatePos(world, player, directions[m])
 	}
