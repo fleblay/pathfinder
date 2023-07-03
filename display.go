@@ -51,11 +51,15 @@ func printMap(world [][]byte) (res string) {
 	return
 }
 
-func printMapAndTries(world [][]byte, seenPos[]Pos2D) string {
-	for _, value := range seenPos {
-		world[value.Y][value.X] = 'X'
+func printMapAndTries(world [][]byte, seenNodes[] Node) {
+	for _, value := range seenNodes {
+		clearScreen()
+		fmt.Print(printMap(world))
+		time.Sleep(5 * time.Millisecond)
+		world[value.pos.Y][value.pos.X] = 'X'
 	}
-	return printMap(world)
+	clearScreen()
+	fmt.Print(printMap(world))
 }
 
 func updatePos(world [][]byte, pos Pos2D, move Pos2D) {

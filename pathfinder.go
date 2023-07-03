@@ -12,6 +12,11 @@ type Pos2D struct {
 	Y int
 }
 
+type Node struct {
+	pos   Pos2D
+	score int
+}
+
 var directions = map[byte]Pos2D{
 	'U': {0, -1},
 	'D': {0, 1},
@@ -51,43 +56,60 @@ func isPosOk(world [][]byte, pos Pos2D) bool {
 	return true
 }
 
-func getNextMoves(world [][]byte, path []byte, player Pos2D, seen []Pos2D) (nextPaths [][]byte, nextPoses []Pos2D, nextSeen []Pos2D) {
+func getNextNodeIndex(queue []Node) int {
+	retScore := queue[0].score
+	ret := 0
+	for index, value := range queue {
+		if value.score < retScore {
+			retScore = value.score
+			ret = index
+		}
+	}
+	return ret
+}
+
+func getNextMoves(world [][]byte, startPos, goalPos Pos2D, scoreFx func(pos, startPos, goalPos Pos2D) int, path []byte, currentNode Node, seenNodes []Node) (nextPaths [][]byte, nextNodes []Node, nextSeen []Node) {
 	for key, value := range directions {
-		nextPos := Pos2D{player.X + value.X, player.Y + value.Y}
+		nextPos := Pos2D{currentNode.pos.X + value.X, currentNode.pos.Y + value.Y}
+		score := scoreFx(nextPos, startPos, goalPos)
+		nextNode := Node{nextPos, score}
 		if isPosOk(world, nextPos) == true &&
-			Index(seen, nextPos) == -1 &&
-			Index(nextSeen, nextPos) == -1 {
+			(posAlreadySeen(seenNodes, nextPos) == -1 ||
+			score < seenNodes[posAlreadySeen(seenNodes, nextPos)].score) {
 			nextPaths = append(nextPaths, DeepCopyAndAdd(path, key))
-			nextPoses = append(nextPoses, nextPos)
-			nextSeen = append(nextSeen, nextPos)
+			nextNodes = append(nextNodes, nextNode)
+			nextSeen = append(nextSeen, nextNode)
 		}
 	}
 	return
 }
 
-func BFS(world [][]byte) ([]byte, []Pos2D, int) {
+func BFS(world [][]byte, scoreFx func(pos, startPos, goalPos Pos2D) int) (currentPath []byte, seenPos []Node, tries int, maxSizeQueue int) {
 	goalPos := findItem(world, 'E')
-	seenPos := []Pos2D{findItem(world, 'S')}
-	posQueue := []Pos2D{findItem(world, 'S')}
+	startPos := findItem(world, 'S')
+	seenPos = []Node{{findItem(world, 'S'), 0}}
+	posQueue := DeepCopyAndAdd(seenPos)
 	pathQueue := [][]byte{{}}
 
-	tries := 0
-	for ;len(posQueue) > 0; tries++ {
-		currentPos := posQueue[0]
-		posQueue = posQueue[1:]
+	for ; len(posQueue) > 0; tries++ {
+		maxSizeQueue = Max(maxSizeQueue, len(posQueue))
 
-		currentPath := pathQueue[0]
-		pathQueue = pathQueue[1:]
+		nextIndex := getNextNodeIndex(posQueue)
+		currentPos := posQueue[nextIndex]
+		posQueue = append(posQueue[:nextIndex], posQueue[nextIndex+1:]...)
 
-		if goalPos == currentPos {
-			return currentPath, seenPos, tries + 1
+		currentPath = pathQueue[nextIndex]
+		pathQueue = append(pathQueue[:nextIndex], pathQueue[nextIndex+1:]...)
+
+		if goalPos == currentPos.pos {
+			return
 		}
-		nextPaths, nextPoses, nextSeen := getNextMoves(world, currentPath, currentPos, seenPos)
+		nextPaths, nextPoses, nextSeen := getNextMoves(world, startPos, goalPos, scoreFx, currentPath, currentPos, seenPos)
 		posQueue = append(posQueue, nextPoses...)
 		pathQueue = append(pathQueue, nextPaths...)
 		seenPos = append(seenPos, nextSeen...)
 	}
-	return nil, seenPos, tries
+	return nil, seenPos, tries, maxSizeQueue
 }
 
 func main() {
@@ -105,11 +127,14 @@ func main() {
 		fmt.Printf("Error opening scanning file %q : %q\n", os.Args[1], err)
 		os.Exit(1)
 	}
-	path, seenPos, tries := BFS(world)
+	path, seenPos, tries, sizeMax := BFS(world, manhattan)
+	//path, seenPos, tries, sizeMax := BFS(world, dijkstra)
+	//path, seenPos, tries, sizeMax := BFS(world, FIFO())
+	//path, seenPos, tries, sizeMax := BFS(world, ASTAR)
 	if path != nil {
 		printPath(world, path)
-		fmt.Printf("Solution found in %d tries \n", tries)
-		fmt.Println(printMapAndTries(DeepCopyAndAdd(world), seenPos))
+		printMapAndTries(DeepCopyAndAdd(world), seenPos)
+		fmt.Printf("Solution found in %d tries. Max size is %d \n", tries, sizeMax)
 	} else {
 		fmt.Println("No solution !")
 	}
