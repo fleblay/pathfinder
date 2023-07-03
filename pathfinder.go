@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"flag"
 )
 
 type Pos2D struct {
@@ -22,6 +23,13 @@ var directions = map[byte]Pos2D{
 	'D': {0, 1},
 	'L': {-1, 0},
 	'R': {1, 0},
+}
+
+var heuristic = map[string]func(pos, startPos, goalPos Pos2D)int{
+	"bfs": FIFO(),
+	"dij": startToCurrent,
+	"greed": currentToGoal,
+	"astar": ASTAR,
 }
 
 func readFile(fd *os.File) (world [][]byte, err error) {
@@ -84,7 +92,7 @@ func getNextMoves(world [][]byte, startPos, goalPos Pos2D, scoreFx func(pos, sta
 	return
 }
 
-func BFS(world [][]byte, scoreFx func(pos, startPos, goalPos Pos2D) int) (currentPath []byte, seenPos []Node, tries int, maxSizeQueue int) {
+func algo(world [][]byte, scoreFx func(pos, startPos, goalPos Pos2D) int) (currentPath []byte, seenPos []Node, tries int, maxSizeQueue int) {
 	goalPos := findItem(world, 'E')
 	startPos := findItem(world, 'S')
 	seenPos = []Node{{findItem(world, 'S'), 0}}
@@ -113,11 +121,15 @@ func BFS(world [][]byte, scoreFx func(pos, startPos, goalPos Pos2D) int) (curren
 }
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Println("You must provide one and only one argument : the map")
+	var selectedAlgo, inputFile string
+	flag.StringVar(&selectedAlgo, "a", "astar", "usage : [bfs|dij|greed|astar]")
+	flag.StringVar(&inputFile, "f", "map.txt", "usage : file")
+	flag.Parse()
+	if len(os.Args) < 2 {
+		fmt.Println("You must provide at least one argument : the map")
 		os.Exit(1)
 	}
-	fd, err := os.Open(os.Args[1])
+	fd, err := os.Open(inputFile)
 	if err != nil {
 		fmt.Printf("Error opening file %q : %q\n", os.Args[1], err)
 		os.Exit(1)
@@ -127,10 +139,7 @@ func main() {
 		fmt.Printf("Error opening scanning file %q : %q\n", os.Args[1], err)
 		os.Exit(1)
 	}
-	path, seenPos, tries, sizeMax := BFS(world, manhattan)
-	//path, seenPos, tries, sizeMax := BFS(world, dijkstra)
-	//path, seenPos, tries, sizeMax := BFS(world, FIFO())
-	//path, seenPos, tries, sizeMax := BFS(world, ASTAR)
+	path, seenPos, tries, sizeMax := algo(world, heuristic[selectedAlgo])
 	if path != nil {
 		printPath(world, path)
 		printMapAndTries(DeepCopyAndAdd(world), seenPos)
