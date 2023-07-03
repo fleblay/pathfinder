@@ -2,10 +2,10 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
-	"flag"
 )
 
 type Pos2D struct {
@@ -25,9 +25,9 @@ var directions = map[byte]Pos2D{
 	'R': {1, 0},
 }
 
-var heuristic = map[string]func(pos, startPos, goalPos Pos2D)int{
-	"bfs": FIFO(),
-	"dij": startToCurrent,
+var heuristic = map[string]func(pos, startPos, goalPos Pos2D) int{
+	"bfs":   FIFO(),
+	"dij":   startToCurrent,
 	"greed": currentToGoal,
 	"astar": ASTAR,
 }
@@ -35,8 +35,14 @@ var heuristic = map[string]func(pos, startPos, goalPos Pos2D)int{
 func readFile(fd *os.File) (world [][]byte, err error) {
 	scanner := bufio.NewScanner(fd)
 	for scanner.Scan() {
-		line := []byte(strings.Join(strings.Split(scanner.Text(), " "), ""))
-		world = append(world, line)
+		rawLine := scanner.Text()
+		if indexStartComment := strings.IndexByte(rawLine, '#'); indexStartComment != -1 {
+			rawLine = rawLine[:indexStartComment]
+		}
+		line := []byte(strings.Join(strings.Split(rawLine, " "), ""))
+		if len(line) > 0 {
+			world = append(world, line)
+		}
 	}
 	return world, scanner.Err()
 }
@@ -54,10 +60,10 @@ func findItem(world [][]byte, toFind byte) (pos Pos2D) {
 }
 
 func isPosOk(world [][]byte, pos Pos2D) bool {
-	if pos.X > len(world[0])-1 ||
-		pos.Y > len(world)-1 ||
-		pos.X < 0 ||
+	if pos.Y > len(world)-1 ||
 		pos.Y < 0 ||
+		pos.X > len(world[pos.Y])-1 ||
+		pos.X < 0 ||
 		world[pos.Y][pos.X] == '1' {
 		return false
 	}
@@ -83,7 +89,7 @@ func getNextMoves(world [][]byte, startPos, goalPos Pos2D, scoreFx func(pos, sta
 		nextNode := Node{nextPos, score}
 		if isPosOk(world, nextPos) == true &&
 			(posAlreadySeen(seenNodes, nextPos) == -1 ||
-			score < seenNodes[posAlreadySeen(seenNodes, nextPos)].score) {
+				score < seenNodes[posAlreadySeen(seenNodes, nextPos)].score) {
 			nextPaths = append(nextPaths, DeepCopyAndAdd(path, key))
 			nextNodes = append(nextNodes, nextNode)
 			nextSeen = append(nextSeen, nextNode)
@@ -120,30 +126,47 @@ func algo(world [][]byte, scoreFx func(pos, startPos, goalPos Pos2D) int) (curre
 	return nil, seenPos, tries, maxSizeQueue
 }
 
-func main() {
-	var selectedAlgo, inputFile string
-	flag.StringVar(&selectedAlgo, "a", "astar", "usage : [bfs|dij|greed|astar]")
-	flag.StringVar(&inputFile, "f", "map.txt", "usage : file")
+func getFlags() (queryAlgo, inputFile string) {
+	flag.StringVar(&queryAlgo, "a", "astar", "[bfs|dij|greed|astar]")
+	flag.StringVar(&inputFile, "f", "map.txt", "filename.txt")
 	flag.Parse()
-	if len(os.Args) < 2 {
-		fmt.Println("You must provide at least one argument : the map")
+	return
+}
+
+func getAlgo(queryAlgo string) (selectedAlgo string) {
+	for key := range heuristic {
+		if strings.ToLower(queryAlgo) == key {
+			selectedAlgo = key
+		}
+	}
+	return
+}
+
+func main() {
+	queryAlgo, inputFile := getFlags()
+	selectedAlgo := getAlgo(queryAlgo)
+
+	if selectedAlgo == "" {
+		fmt.Println("Wrong algo name selected")
 		os.Exit(1)
 	}
 	fd, err := os.Open(inputFile)
 	if err != nil {
-		fmt.Printf("Error opening file %q : %q\n", os.Args[1], err)
+		fmt.Printf("Error opening file %q : %q\n", inputFile, err)
 		os.Exit(1)
 	}
 	world, err := readFile(fd)
 	if err != nil {
-		fmt.Printf("Error opening scanning file %q : %q\n", os.Args[1], err)
+		fmt.Printf("Error opening scanning file %q : %q\n", inputFile, err)
 		os.Exit(1)
 	}
 	path, seenPos, tries, sizeMax := algo(world, heuristic[selectedAlgo])
 	if path != nil {
 		printPath(world, path)
+		fmt.Println("Press Enter to display explored nodes")
+		bufio.NewReader(os.Stdin).ReadLine()
 		printMapAndTries(DeepCopyAndAdd(world), seenPos)
-		fmt.Printf("Solution found in %d tries. Max size is %d \n", tries, sizeMax)
+		fmt.Printf("Solution with %d steps found in %d tries. Max size is %d \n", len(path), tries, sizeMax)
 	} else {
 		fmt.Println("No solution !")
 	}
