@@ -19,7 +19,7 @@ func posAlreadySeen(slice []Node, toFind Pos2D) int {
 }
 
 func DeepCopyAndAdd[T any](slice []T, elems ...T) []T{
-	newSlice := make([]T, len(slice) + len(elems))
+	newSlice := make([]T, len(slice))
 	copy(newSlice, slice)
 	newSlice = append(newSlice, elems...)
 	return newSlice
